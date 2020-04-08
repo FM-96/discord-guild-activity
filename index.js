@@ -68,9 +68,12 @@ client.once('ready', async () => {
 			scan.lastScannedMessage = latestMessage.id;
 			await scan.save();
 		}
-		console.log(`${channel.name}: saved to database`);
+		console.log(`${channel.name}: saved ${dbOps.length} messages to database`);
 	}
 	console.log(`finished scan: ${totalMessages} messages in total`);
+
+	console.log(`The current day is ${CUR_DAY} [${new Date(fromDay(CUR_DAY)).toISOString().split('T')[0]}]`);
+	console.log(`Counting activity from days ${CUR_DAY - process.env.DAYS} to ${CUR_DAY - 1} (inclusive)`);
 
 	// query database for activity level
 	const dbActivityResult = await Message.aggregate([
