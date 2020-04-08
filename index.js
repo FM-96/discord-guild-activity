@@ -86,9 +86,14 @@ client.once('ready', async () => {
 
 	const highScore = dbActivityResult.slice(0, process.env.TOP_LIMIT);
 
-	let index = 0;
-	for (const entry of highScore) {
-		index++;
+	let position = 0;
+	for (let i = 0; i < highScore.length; ++i) {
+		const entry = highScore[i];
+		const prevEntry = highScore[i - 1];
+		if (!prevEntry || entry.activeMinutes !== prevEntry.activeMinutes) {
+			position = i + 1;
+		}
+
 		let user;
 		try {
 			user = await client.fetchUser(entry._id);
@@ -96,7 +101,7 @@ client.once('ready', async () => {
 			user = {tag: 'Unknown User#0000', id: entry._id};
 		}
 		const activityPercentage = Math.floor((entry.activeMinutes / MAX_MINUTES) * 10000) / 100;
-		console.log(`${index}. ${user.tag} (${user.id}): ${entry.activeMinutes} minutes (${activityPercentage}%)`);
+		console.log(`${position}. ${user.tag} (${user.id}): ${entry.activeMinutes} minutes (${activityPercentage}%)`);
 	}
 
 	process.exit(0);
