@@ -21,9 +21,9 @@ client.once('ready', async () => {
 
 	const scannableChannels = guild.channels.array().filter(e => e.type === 'text' && e.permissionsFor(me).has(Discord.Permissions.FLAGS.VIEW_CHANNEL | Discord.Permissions.FLAGS.READ_MESSAGE_HISTORY));
 
-	// scan channels for new messages
-	const messages = [];
+	let totalMessages = 0;
 	for (const channel of scannableChannels) {
+		// scan channels for new messages
 		console.log(`scanning ${channel.name}`);
 		let channelHistory;
 		while (!channelHistory) {
@@ -33,31 +33,29 @@ client.once('ready', async () => {
 				console.log(`ERR ${channel.name}: ${err.message}`);
 			}
 		}
+		totalMessages += channelHistory.length;
 		console.log(`${channel.name}: ${channelHistory.length} messages`);
+
+		// save scanned messages in database
+		const dbOps = [];
 		for (const message of channelHistory) {
-			messages.push(message);
-		}
-	}
-	console.log(`${messages.length} messages in total`);
+			if (message.author.bot) {
+				continue;
+			}
 
-	// save scanned messages in database
-	const dbOps = [];
-	for (const message of messages) {
-		if (message.author.bot) {
-			continue;
+			dbOps.push(Message.findOneAndUpdate({messageId: message.id}, {
+				messageId: message.id,
+				guildId: message.guild.id,
+				channelId: message.channel.id,
+				userId: message.author.id,
+				day: toDay(message.createdTimestamp),
+				minute: toMinute(message.createdTimestamp),
+			}, {upsert: true}));
 		}
-
-		dbOps.push(Message.findOneAndUpdate({messageId: message.id}, {
-			messageId: message.id,
-			guildId: message.guild.id,
-			channelId: message.channel.id,
-			userId: message.author.id,
-			day: toDay(message.createdTimestamp),
-			minute: toMinute(message.createdTimestamp),
-		}, {upsert: true}));
+		await Promise.all(dbOps);
+		console.log(`${channel.name}: saved to database`);
 	}
-	await Promise.all(dbOps);
-	console.log('Saved to database');
+	console.log(`finished scan: ${totalMessages} messages in total`);
 
 	// query database for activity level
 	const dbActivityResult = await Message.aggregate([
