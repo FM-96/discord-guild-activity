@@ -4,13 +4,14 @@ const Discord = require('discord.js');
 const mongoose = require('mongoose');
 
 const Message = require('./Message.js');
+const ChannelScan = require('./ChannelScan.js');
 
 const client = new Discord.Client();
 
 client.once('ready', async () => {
 	const CUR_TIME = Date.now();
 	const CUR_DAY = toDay(CUR_TIME);
-	const SCAN_START = fromDay(CUR_DAY - process.env.DAYS) - 1;
+	const SCAN_START = fromDay(CUR_DAY - process.env.DAYS) - 1000;
 	const MAX_MINUTES = process.env.DAYS * 1440;
 
 	const guild = client.guilds.get(process.env.GUILD_ID);
@@ -25,10 +26,15 @@ client.once('ready', async () => {
 	for (const channel of scannableChannels) {
 		// scan channels for new messages
 		console.log(`scanning ${channel.name}`);
+		let scan = await ChannelScan.findOne({channelId: channel.id});
+		if (!scan) {
+			scan = new ChannelScan({channelId: channel.id});
+		}
+		const scanStart = scan.lastScannedMessage || Discord.SnowflakeUtil.generate(SCAN_START);
 		let channelHistory;
 		while (!channelHistory) {
 			try {
-				channelHistory = await getChannelHistory(channel, SCAN_START);
+				channelHistory = await getChannelHistory(channel, scanStart);
 			} catch (err) {
 				console.log(`ERR ${channel.name}: ${err.message}`);
 			}
@@ -38,7 +44,12 @@ client.once('ready', async () => {
 
 		// save scanned messages in database
 		const dbOps = [];
+		let latestMessage = channelHistory[0];
 		for (const message of channelHistory) {
+			if (message.createdTimestamp > latestMessage.createdTimestamp) {
+				latestMessage = message;
+			}
+
 			if (message.author.bot) {
 				continue;
 			}
@@ -53,6 +64,10 @@ client.once('ready', async () => {
 			}, {upsert: true}));
 		}
 		await Promise.all(dbOps);
+		if (latestMessage) {
+			scan.lastScannedMessage = latestMessage.id;
+			await scan.save();
+		}
 		console.log(`${channel.name}: saved to database`);
 	}
 	console.log(`finished scan: ${totalMessages} messages in total`);
@@ -96,7 +111,7 @@ mongoose.connect(process.env.MONGODB, {
 
 async function getChannelHistory(channel, scanStart) {
 	const result = [];
-	let lastMessage = Discord.SnowflakeUtil.generate(scanStart);
+	let lastMessage = scanStart;
 	let done = false;
 
 	do {
