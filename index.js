@@ -84,7 +84,15 @@ client.once('ready', async () => {
 
 	dbActivityResult.sort((a, b) => b.activeMinutes - a.activeMinutes);
 
-	const highScore = dbActivityResult.slice(0, process.env.TOP_LIMIT);
+	let highScoreSize = Number(process.env.TOP_LIMIT);
+	const bottomEntry = dbActivityResult[highScoreSize - 1];
+	if (bottomEntry) {
+		const bottomScore = bottomEntry.activeMinutes;
+		for (let i = highScoreSize; i < dbActivityResult.length && dbActivityResult[i].activeMinutes === bottomScore; ++i) {
+			highScoreSize++;
+		}
+	}
+	const highScore = dbActivityResult.slice(0, highScoreSize);
 
 	let position = 0;
 	for (let i = 0; i < highScore.length; ++i) {
