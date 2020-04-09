@@ -8,6 +8,8 @@ const ChannelScan = require('./ChannelScan.js');
 
 const client = new Discord.Client();
 
+const BOT_PREFIXES = process.env.BOT_PREFIXES.split(',');
+
 client.once('ready', async () => {
 	const CUR_TIME = Date.now();
 	const CUR_DAY = toDay(CUR_TIME);
@@ -51,6 +53,10 @@ client.once('ready', async () => {
 			}
 
 			if (message.author.bot) {
+				continue;
+			}
+
+			if (BOT_PREFIXES.some(e => message.content.startsWith(e))) {
 				continue;
 			}
 
