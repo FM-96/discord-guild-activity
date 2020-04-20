@@ -111,7 +111,7 @@ client.once('ready', async () => {
 			user = {tag: 'Unknown User#0000', id: entry._id};
 		}
 		const activityPercentage = Math.floor((entry.activeMinutes / MAX_MINUTES) * 10000) / 100;
-		activityReport += `${position}. ${user.tag} (${user.id}): ${entry.activeMinutes} minutes (${activityPercentage}%)\n`;
+		activityReport += `${position}. ${user.tag} (${user.id}): ${entry.activeMinutes} minute${entry.activeMinutes === 1 ? '' : 's'} (${activityPercentage}%)\n`;
 	}
 
 	const outFile = `${process.env.FOLDER}/${process.env.FILENAME}.txt`.replace(/%DATE%/g, new Date(fromDay(CUR_DAY)).toISOString().split('T')[0]);
