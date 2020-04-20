@@ -3,6 +3,8 @@ require('dotenv').config({path: `${process.argv[2] || ''}.env`});
 const Discord = require('discord.js');
 const mongoose = require('mongoose');
 
+const fs = require('fs');
+
 const Message = require('./Message.js');
 const ChannelScan = require('./ChannelScan.js');
 
@@ -78,8 +80,10 @@ client.once('ready', async () => {
 	}
 	console.log(`finished scan: ${totalMessages} messages in total`);
 
-	console.log(`The current day is ${CUR_DAY} [${new Date(fromDay(CUR_DAY)).toISOString().split('T')[0]}]`);
-	console.log(`Counting activity from days ${CUR_DAY - process.env.DAYS} to ${CUR_DAY - 1} (inclusive)`);
+	let activityReport = '';
+
+	activityReport += `The current day is ${CUR_DAY} [${new Date(fromDay(CUR_DAY)).toISOString().split('T')[0]}]\n`;
+	activityReport += `Counting activity from days ${CUR_DAY - process.env.DAYS} to ${CUR_DAY - 1} (inclusive)\n`;
 
 	// query database for activity level
 	const dbActivityResult = await Message.aggregate([
@@ -90,15 +94,7 @@ client.once('ready', async () => {
 
 	dbActivityResult.sort((a, b) => b.activeMinutes - a.activeMinutes);
 
-	let highScoreSize = Number(process.env.TOP_LIMIT);
-	const bottomEntry = dbActivityResult[highScoreSize - 1];
-	if (bottomEntry) {
-		const bottomScore = bottomEntry.activeMinutes;
-		for (let i = highScoreSize; i < dbActivityResult.length && dbActivityResult[i].activeMinutes === bottomScore; ++i) {
-			highScoreSize++;
-		}
-	}
-	const highScore = dbActivityResult.slice(0, highScoreSize);
+	const highScore = dbActivityResult.slice();
 
 	let position = 0;
 	for (let i = 0; i < highScore.length; ++i) {
@@ -115,8 +111,12 @@ client.once('ready', async () => {
 			user = {tag: 'Unknown User#0000', id: entry._id};
 		}
 		const activityPercentage = Math.floor((entry.activeMinutes / MAX_MINUTES) * 10000) / 100;
-		console.log(`${position}. ${user.tag} (${user.id}): ${entry.activeMinutes} minutes (${activityPercentage}%)`);
+		activityReport += `${position}. ${user.tag} (${user.id}): ${entry.activeMinutes} minutes (${activityPercentage}%)\n`;
 	}
+
+	const outFile = `${process.env.FOLDER}/${process.env.FILENAME}.txt`.replace(/%DATE%/g, new Date(fromDay(CUR_DAY)).toISOString().split('T')[0]);
+	fs.writeFileSync(outFile, activityReport);
+	console.log(`Wrote activity report to ${outFile}`);
 
 	process.exit(0);
 });
