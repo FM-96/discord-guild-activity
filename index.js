@@ -8,7 +8,11 @@ const fs = require('fs');
 const Message = require('./Message.js');
 const ChannelScan = require('./ChannelScan.js');
 
-const client = new Discord.Client();
+const client = new Discord.Client({
+	ws: {
+		intents: Discord.Intents.NON_PRIVILEGED,
+	},
+});
 
 const BOT_PREFIXES = process.env.BOT_PREFIXES.split(',');
 
@@ -18,13 +22,13 @@ client.once('ready', async () => {
 	const SCAN_START = fromDay(CUR_DAY - process.env.DAYS) - 1000;
 	const MAX_MINUTES = process.env.DAYS * 1440;
 
-	const guild = client.guilds.get(process.env.GUILD_ID);
-	const me = await guild.fetchMember(client.user);
+	const guild = client.guilds.cache.get(process.env.GUILD_ID);
+	const me = guild.me;
 
 	console.log(`Logged in as ${client.user.tag}`);
 	console.log(`Scanning messages in guild "${guild.name}"`);
 
-	const scannableChannels = guild.channels.array().filter(e => e.type === 'text' && e.permissionsFor(me).has(Discord.Permissions.FLAGS.VIEW_CHANNEL | Discord.Permissions.FLAGS.READ_MESSAGE_HISTORY));
+	const scannableChannels = guild.channels.cache.array().filter(e => e.type === 'text' && e.permissionsFor(me).has(Discord.Permissions.FLAGS.VIEW_CHANNEL | Discord.Permissions.FLAGS.READ_MESSAGE_HISTORY));
 
 	let totalMessages = 0;
 	for (const channel of scannableChannels) {
@@ -106,7 +110,7 @@ client.once('ready', async () => {
 
 		let user;
 		try {
-			user = await client.fetchUser(entry._id);
+			user = await client.users.fetch(entry._id);
 		} catch (err) {
 			user = {tag: 'Unknown User#0000', id: entry._id};
 		}
@@ -140,7 +144,7 @@ async function getChannelHistory(channel, scanStart) {
 		const options = {limit: 100};
 		options.after = lastMessage;
 
-		const messages = await channel.fetchMessages(options);
+		const messages = await channel.messages.fetch(options);
 		if (messages.size) {
 			result.push(...messages.values());
 			lastMessage = messages.firstKey();
